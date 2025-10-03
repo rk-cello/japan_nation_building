@@ -1,0 +1,83 @@
+---
+title: "purge_map_all_years"
+author: "Reina Kishida"
+date: "2025-09-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Setup
+pacman::p_load(spdep, sf, tidyverse, ggplot2, here)
+
+output_dir <- "/Users/reinakishida/Library/CloudStorage/Dropbox/Japan_Nation_Building/output/fig"
+dir.create(output_dir, showWarnings = FALSE)
+```
+
+
+```{r}
+# purge statistics
+pref_level_purges <- read.csv("/Users/reinakishida/Library/CloudStorage/Dropbox/Japan_Nation_Building/data/raw/prefecture_level_purges.csv") %>% 
+  mutate(prefecture = if_else(prefecture == "Hyõgo", "Hyogo", if_else(prefecture == "Kaganawa", "Kanagawa", prefecture)))
+
+# map data
+japan_map <- st_read("../data/raw/JPN_adm/JPN_adm2.shp") %>% 
+  mutate(NAME_1 = if_else(NAME_1 == "Hyōgo", "Hyogo", if_else(NAME_1 == "Naoasaki", "Nagasaki", NAME_1)))
+
+# Dissolve polygons by prefecture code
+japan_map_pref_level <- japan_map %>%
+  group_by(ID_1, NAME_1) %>%
+  summarize(geometry = st_union(geometry)) %>%
+  ungroup()
+
+# merge
+df_purge_map <- japan_map_pref_level %>%
+  left_join(pref_level_purges, by = c("NAME_1" = "prefecture")) %>%
+  mutate(reg_purge_rate = (registered_purgees / population) * 100,
+         est_purge_rate = (estimated_purgees / population) * 100) %>% 
+  rename(pref_ID = ID_1,
+         prefecture = NAME_1) 
+
+```
+
+
+
+```{r}
+# map 1
+map1 <- ggplot(data = df_purge_map) +
+  geom_sf(aes(fill = reg_purge_rate), color = "white") +
+  scale_fill_viridis_c(option = "plasma", na.value = "grey90", name = "Registered Purge Rate (%)") +
+  theme_minimal() +
+  labs(title = "Registered Purge Rate by Prefecture in Japan") +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank())
+
+ggsave(filename = file.path(output_dir, paste0("reg_purge_rate", ".png")), 
+       plot = map1, 
+       # width = 8, height = 6, 
+       dpi = 300, bg = "white")
+
+```
+
+```{r}
+# map 2
+map2 <- ggplot(data = df_purge_map) +
+  geom_sf(aes(fill = est_purge_rate), color = "white") +
+  scale_fill_viridis_c(option = "plasma", na.value = "grey90", name = "Estimated Purge Rate (%)") +
+  theme_minimal() +
+  labs(title = "Estimated Purge Rate by Prefecture in Japan") +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank())
+
+ggsave(filename = file.path(output_dir, paste0("est_purge_rate", ".png")), 
+       plot = map2, 
+       # width = 8, height = 6, 
+       dpi = 300, bg = "white")
+
+```
+
