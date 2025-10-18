@@ -11,21 +11,24 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 # Setup
-pacman::p_load(spdep, sf, tidyverse, ggplot2, here)
+pacman::p_load(spdep, sf, tidyverse, ggplot2, here, readxl)
 
-output_dir <- "/Users/reinakishida/Library/CloudStorage/Dropbox/Japan_Nation_Building/output/fig"
+output_dir <- here("..", "..", "output", "fig")
 dir.create(output_dir, showWarnings = FALSE)
 ```
 
 
 ```{r}
 # purge statistics
-pref_level_purges <- read.csv("/Users/reinakishida/Library/CloudStorage/Dropbox/Japan_Nation_Building/data/raw/prefecture_level_purges.csv") %>% 
+pref_level_purges <- read.csv(here("..", "..", "data", "raw", "prefecture_level_purges.csv")) %>% 
   mutate(prefecture = if_else(prefecture == "Hyõgo", "Hyogo", if_else(prefecture == "Kaganawa", "Kanagawa", prefecture)))
 
 # map data
-japan_map <- st_read("../data/raw/JPN_adm/JPN_adm2.shp") %>% 
+japan_map <- st_read(here("..", "..", "data", "raw", "JPN_adm", "JPN_adm2.shp")) %>% 
   mutate(NAME_1 = if_else(NAME_1 == "Hyōgo", "Hyogo", if_else(NAME_1 == "Naoasaki", "Nagasaki", NAME_1)))
+
+# 1946 election candidates
+election_1946 <- read_excel(here("..", "..", "data", "raw", "election_1946.xlsx"))
 
 # Dissolve polygons by prefecture code
 japan_map_pref_level <- japan_map %>%
@@ -37,47 +40,132 @@ japan_map_pref_level <- japan_map %>%
 df_purge_map <- japan_map_pref_level %>%
   left_join(pref_level_purges, by = c("NAME_1" = "prefecture")) %>%
   mutate(reg_purge_rate = (registered_purgees / population) * 100,
-         est_purge_rate = (estimated_purgees / population) * 100) %>% 
+         est_purge_rate = (estimated_purgees / population) * 100,
+         reg_purge_per_k = (registered_purgees / population) * 1000,
+         est_purge_per_k = (estimated_purgees / population) * 1000,
+         ) %>% 
   rename(pref_ID = ID_1,
-         prefecture = NAME_1) 
+         prefecture = NAME_1) %>% 
+  left_join(election_1946, by = c("area", "prefecture")) %>% 
+  mutate(
+    reg_purge_per_candidate = (registered_purgees / candidates_1946),
+    est_purge_per_candidate = (estimated_purgees / candidates_1946)
+  )
 
 ```
 
 
+# map 1: Registered purge density (%)
 
 ```{r}
-# map 1
 map1 <- ggplot(data = df_purge_map) +
   geom_sf(aes(fill = reg_purge_rate), color = "white") +
-  scale_fill_viridis_c(option = "plasma", na.value = "grey90", name = "Registered Purge Rate (%)") +
+  # scale_fill_viridis_c(option = "plasma", na.value = "grey90", name = "Registered Purge Rate (%)") +
+  scale_fill_gradient(low = "lightgreen", high = "darkgreen", na.value = "grey90", name = "Registered purge rate (%)") +
   theme_minimal() +
-  labs(title = "Registered Purge Rate by Prefecture in Japan") +
+  labs(title = "Registered Purge Rate (%), by Prefecture") +
   theme(axis.text = element_blank(),
         axis.ticks = element_blank(),
         panel.grid = element_blank())
 
 ggsave(filename = file.path(output_dir, paste0("reg_purge_rate", ".png")), 
        plot = map1, 
-       # width = 8, height = 6, 
+       width = 8, height = 4,
        dpi = 300, bg = "white")
 
 ```
+
+# map 2: Estimated purge density (%)
 
 ```{r}
 # map 2
 map2 <- ggplot(data = df_purge_map) +
   geom_sf(aes(fill = est_purge_rate), color = "white") +
-  scale_fill_viridis_c(option = "plasma", na.value = "grey90", name = "Estimated Purge Rate (%)") +
+  # scale_fill_viridis_c(option = "plasma", na.value = "grey90", name = "Estimated Purge Rate (%)") +
+  scale_fill_gradient(low = "lightgreen", high = "darkgreen", na.value = "grey90", name = "Estimated purge rate (%)") +
   theme_minimal() +
-  labs(title = "Estimated Purge Rate by Prefecture in Japan") +
+  labs(title = "Estimated Purge Rate (%), by Prefecture") +
   theme(axis.text = element_blank(),
         axis.ticks = element_blank(),
         panel.grid = element_blank())
 
 ggsave(filename = file.path(output_dir, paste0("est_purge_rate", ".png")), 
        plot = map2, 
-       # width = 8, height = 6, 
+       width = 8, height = 4,
        dpi = 300, bg = "white")
 
+```
+
+
+# map 3: Registered purge density (per 1000 people)
+
+```{r}
+map3 <- ggplot(data = df_purge_map) +
+  geom_sf(aes(fill = reg_purge_per_k), color = "white") +
+  scale_fill_gradient(low = "lightgreen", high = "darkgreen", na.value = "grey90", name = "Registered purges per 1000 people") +
+  theme_minimal() +
+  labs(title = "Registered Purge Rate (per 1000 people), by Prefecture") +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank())
+
+ggsave(filename = file.path(output_dir, paste0("reg_purge_per_k", ".png")),
+       plot = map3, 
+       width = 8, height = 4,
+       dpi = 300, bg = "white")
+```
+
+# map 4: Estimated purge density (per 1000 people)
+
+```{r}
+map4 <- ggplot(data = df_purge_map) +
+  geom_sf(aes(fill = est_purge_per_k), color = "white") +
+  scale_fill_gradient(low = "lightgreen", high = "darkgreen", na.value = "grey90", name = "Estimated purges per 1000 people") +
+  theme_minimal() +
+  labs(title = "Estimated Purge Rate (per 1000 people), by Prefecture") +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank())
+
+ggsave(filename = file.path(output_dir, paste0("est_purge_per_k", ".png")),
+       plot = map4, 
+       width = 8, height = 4,
+       dpi = 300, bg = "white")
+```
+
+# map 5: Registered purge density (per candidates in 1946 election) 
+
+```{r}
+map5 <- ggplot(data = df_purge_map) +
+  geom_sf(aes(fill = reg_purge_per_candidate), color = "white") +
+  scale_fill_gradient(low = "lightgreen", high = "darkgreen", na.value = "grey90", name = "Registered purges per candidate in 1946 election") +
+  theme_minimal() +
+  labs(title = "Registered Purges per Political Candidate, by Prefecture") +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank())
+
+ggsave(filename = file.path(output_dir, paste0("reg_purge_per_candidate", ".png")),
+       plot = map5, 
+       width = 8, height = 4,
+       dpi = 300, bg = "white")
+```
+
+# map 6: Estimated purge density (per candidates in 1946 election) 
+
+```{r}
+map6 <- ggplot(data = df_purge_map) +
+  geom_sf(aes(fill = est_purge_per_candidate), color = "white") +
+  scale_fill_gradient(low = "lightgreen", high = "darkgreen", na.value = "grey90", name = "Estimated purges per candidate in 1946 election") +
+  theme_minimal() +
+  labs(title = "Estimated Purges per Political Candidate, by Prefecture") +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid = element_blank())
+
+ggsave(filename = file.path(output_dir, paste0("est_purge_per_candidate", ".png")),
+       plot = map6, 
+       width = 8, height = 4,
+       dpi = 300, bg = "white")
 ```
 
