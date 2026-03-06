@@ -1,7 +1,9 @@
-pacman::p_load("tidyverse", "ggplot2")
+pacman::p_load("tidyverse", "ggplot2", "readxl")
 
 # Load the data
 load("data/raw/clea_lc_20251015.RData")
+election_outcome_1946 <- read_excel("data/dev/election_outcome_1946.xlsx")
+election_seats_1946 <- read_excel("data/dev/election_seats_1946.xlsx")
 
 
 # Lower house 1947-1953 ####
@@ -42,5 +44,37 @@ clea_3 <- clea_3 %>%
 
 
 # Lower house 1946 ####
+election_outcome_1946_2 <- election_outcome_1946 %>% 
+  pivot_longer(cols = -c(pref), names_to = "pty_n", values_to = "total_candidate_vote") %>%
+  mutate(yr = 1946) 
 
+election_outcome_1946_2 <- election_outcome_1946_2 %>% 
+  group_by(pref) %>% 
+  mutate(
+    vote_share = total_candidate_vote / sum(total_candidate_vote)
+  ) %>% 
+  ungroup()
+
+election_seats_1946_2 <- election_seats_1946 %>% 
+  pivot_longer(cols = -c(prefecture), names_to = "pty_n", values_to = "total_seats") %>%
+  rename(pref = prefecture) %>%
+  mutate(yr = 1946)
+
+election_seats_1946_2 <- election_seats_1946_2 %>% 
+  group_by(pref) %>% 
+  mutate(
+    seat_share = total_seats / sum(total_seats)
+  ) %>% 
+  ungroup()
+
+election_outcome_1946_3 <- left_join(election_outcome_1946_2, election_seats_1946_2, by = c("yr", "pref", "pty_n"))
+  
+
+# Combine the data ####
+lower_election_outcome <- bind_rows(
+  election_outcome_1946_3 %>% select(yr, pref, pty_n, total_candidate_vote, vote_share, total_seats, seat_share),
+  clea_3
+)
+  
+  
   
