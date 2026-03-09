@@ -1,0 +1,19 @@
+---
+title: "election_outcome_regs"
+author: "Reina Kishida"
+date: "2026-03-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+pacman::p_load("tidyverse", "ggplot2", "readxl")
+```
+
+```{r}
+
+```
+
